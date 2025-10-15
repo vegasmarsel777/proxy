@@ -1,0 +1,56 @@
+name: Запуск 20 прокси-серверов
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-proxy:
+    # Задаем имя для каждого задания, чтобы их было легко различать в интерфейсе
+    name: Прокси-сервер ${{ matrix.server_id }}
+    runs-on: ubuntu-latest
+
+    # --- КЛЮЧЕВОЙ МОМЕНТ ---
+    # Эта матрица говорит GitHub Actions запустить 20 копий этого задания.
+    # Каждая копия получит уникальное значение server_id от 1 до 20.
+    strategy:
+      matrix:
+        server_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+    steps:
+      # Шаг 1: Обновление пакетов и установка tinyproxy
+      - name: Установка tinyproxy
+        run: sudo apt-get update && sudo apt-get install -y tinyproxy
+
+      # Шаг 2: Создание файла конфигурации
+      - name: Создание файла конфигурации
+        run: |
+          cat << EOF | sudo tee /etc/tinyproxy/tinyproxy.conf
+          User tinyproxy
+          Group tinyproxy
+          Port 8888
+          Timeout 600
+          PidFile "/run/tinyproxy/tinyproxy.pid"
+          MaxClients 100
+          DisableViaHeader yes
+          Anonymous "X-Forwarded-For"
+          BasicAuth proxy_user t3jlj5p7FWxw9PgB6R
+          EOF
+
+      # Шаг 3: Запуск сервиса tinyproxy
+      - name: Запуск tinyproxy
+        run: sudo systemctl start tinyproxy
+
+      # Шаг 4: Получение публичного IP-адреса воркера и вывод данных для подключения
+      - name: Получение IP-адреса и вывод данных
+        run: |
+          IP_ADDRESS=$(curl -s ifconfig.me)
+          echo "--- ДАННЫЕ ДЛЯ ПОДКЛЮЧЕНИЯ (Сервер ${{ matrix.server_id }}) ---"
+          echo "Хост / Адрес сервера: $IP_ADDRESS"
+          echo "Порт: 8888"
+          echo "Имя пользователя: proxy_user"
+          echo "Пароль: t3jlj5p7FWxw9PgB6R"
+          echo "--------------------------------"
+
+      # Шаг 5: Поддержание работы воркера в течение ~5.9 часов
+      - name: Поддержание работы воркера
+        run: sleep 21000
